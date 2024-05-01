@@ -13,7 +13,7 @@ from datetime import datetime as dt
 ### check if API KEY is valid 
 def validate_api_key(api_key):
     valid_api_key = False
-    api_base_url = os.environ['ICA_BASE_URL'] +"/ica/rest"
+    api_base_url = os.environ['ICA_ROOT_URL'] +"/ica/rest"
     endpoint = f"/api/tokens"
     full_url = api_base_url + endpoint
     headers = CaseInsensitiveDict()
@@ -31,7 +31,7 @@ def validate_api_key(api_key):
 ### check if PROJECT_ID is valid, do we allow by PROJECT_NAME as well?
 def valid_project_id(api_key,project_id):
     valid_project_id = False
-    api_base_url = os.environ['ICA_BASE_URL'] + "/ica/rest"
+    api_base_url = os.environ['ICA_ROOT_URL'] + "/ica/rest"
     endpoint = f"/api/projects/{project_id}"
     full_url = api_base_url + endpoint
     headers = CaseInsensitiveDict()
@@ -53,7 +53,7 @@ def get_project_id(api_key, project_name):
     pageSize = 30
     page_number = 0
     number_of_rows_to_skip = 0
-    api_base_url = os.environ['ICA_BASE_URL'] + "/ica/rest"
+    api_base_url = os.environ['ICA_ROOT_URL'] + "/ica/rest"
     endpoint = f"/api/projects?search={project_name}&includeHiddenProjects=true&pageOffset={pageOffset}&pageSize={pageSize}"
     full_url = api_base_url + endpoint  ############ create header
     headers = CaseInsensitiveDict()
@@ -79,7 +79,7 @@ def get_project_id(api_key, project_name):
 ############
 
 def get_ica_base_connection(api_key,project_id):
-    api_base_url = os.environ['ICA_BASE_URL'] + "/ica/rest"
+    api_base_url = os.environ['ICA_ROOT_URL'] + "/ica/rest"
     endpoint = f"/api/projects/{project_id}/base:connectionDetails"
     #### BOILERPLATE header JSON for most GET and POST requests via the API
     headers = CaseInsensitiveDict()
@@ -100,7 +100,7 @@ def get_ica_base_connection(api_key,project_id):
 
 ### List Base tables see if any have Clarity in them?
 def get_base_tables(api_key,project_id):
-    api_base_url = os.environ['ICA_BASE_URL'] + "/ica/rest"
+    api_base_url = os.environ['ICA_ROOT_URL'] + "/ica/rest"
     endpoint = f"/api/projects/{project_id}/base/tables"
     full_url = api_base_url + endpoint
     #### BOILERPLATE header JSON for most GET and POST requests via the API
@@ -291,12 +291,12 @@ def parse_table_row(row):
 ############################################
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--project_id', default=None, type=str, help="ICA project id as seen in Base")
+    parser.add_argument('--project_id', default=None, type=str, help="ICA project id")
     parser.add_argument('--project_name', default=None, type=str, help="ICA project name")
     parser.add_argument('--sample_id', nargs='+', type=str, help="Sample Identifier to query from Clarity")
     parser.add_argument('--lims_sample_project', default=None, type=str, help="Clarity LIMS Sample project to query on")
     parser.add_argument('--output_csv', default=None, type=str, help="output CSV containing case metadata for Connected Insights")
-    parser.add_argument('--ica_base_url', default="https://ica.illumina.com", type=str, help="ICA base url. In most use-cases, this option does not need to be configured")
+    parser.add_argument('--ica_root_url', default="https://ica.illumina.com", type=str, help="ICA root url. In most use-cases, this option does not need to be configured")
     parser.add_argument('--api_key', default=None, type=str, help="A string that is the API Key")
     parser.add_argument('--api_key_file', default=None, type=str, help="file that contains API Key")
     parser.add_argument('--lenient_mode',  action="store_true", help="lenient mode crafting CSV for debugging")
@@ -310,7 +310,7 @@ def main():
     LIMS_SAMPLE_PROJECT = None
     OUTPUT_CSV = None
     ################
-    os.environ['ICA_BASE_URL'] = args.ica_base_url
+    os.environ['ICA_ROOT_URL'] = args.ica_root_url
 
     if args.output_csv is not None:
         OUTPUT_CSV = args.output_csv
@@ -355,7 +355,7 @@ def main():
         print(f"[Pre-Flight-Check] Generating metadata for Connected Insights using samples from this project in Clarity LIMS: {LIMS_SAMPLE_PROJECT}")
 
     # STEP 1: Get ICA base connection details
-    print(f"STEP 1: Get ICA base connection details")
+    print(f"STEP 1: Get ICA Base connection details")
     ica_base_table_metadata = get_base_tables(API_KEY,PROJECT_ID)
     if base_table_sanity_check(ica_base_table_metadata) is True:
         ICA_base_connection_details = get_ica_base_connection(API_KEY,PROJECT_ID)
