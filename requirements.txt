@@ -1,0 +1,6 @@
+snowflake-connector-python
+snowflake-connector-python[pandas]
+requests
+pandas
+argparse
+datetime
