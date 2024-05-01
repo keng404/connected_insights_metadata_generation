@@ -2,7 +2,7 @@
 
 ## Command-line usage
 
-[!Image](https://github.com/keng404/connected_insights_metadata_generation/blob/main/script_usage_help.png)
+![Image](https://github.com/keng404/connected_insights_metadata_generation/blob/main/script_usage_help.png)
 
 ## Installation
 
