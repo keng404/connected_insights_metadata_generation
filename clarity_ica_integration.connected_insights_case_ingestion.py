@@ -165,6 +165,7 @@ def load_clarity_sample_table(snowflake_connector_object = None,  base_table_of_
     if base_table_of_interest is None:
         base_table_of_interest = "CLARITY_SAMPLE_VIEW_tenant"
     base_query = f"SELECT * FROM {base_table_of_interest}"
+    # , ORDER BY CREATE_TIME DESC 
     print("SQL Query \n\n")
     pprint(base_query)
     base_results = None
@@ -212,7 +213,7 @@ def subset_clarity_sample_view(clarity_sample_data = None, sample_ids = [], clar
                 else:
                     sample_id_count[record['id']] = 1
         elif  len(sample_ids) > 0 and clarity_lims_sample_project is not None:
-            if record['limsSampleProject'] == clarity_lims_sample_project and rorecordw['id'] in sample_ids:
+            if record['limsSampleProject'] == clarity_lims_sample_project and record['id'] in sample_ids:
                 results.append(record)
                 if record['id'] in sample_id_count.keys():
                     sample_id_count[record['id']] = sample_id_count[record['id']] + 1
@@ -242,12 +243,13 @@ def subset_clarity_sample_view(clarity_sample_data = None, sample_ids = [], clar
 # in case Clarity stores info differently from the fields we are interested in
 field_map_dict = dict()
 field_map_dict["Sample_ID"] = "id" 
-mandatory_fields = ["Sample_ID", "Tumor_Type", "Case_ID"]
+mandatory_fields = ["Sample_ID", "Tumor_Type", "Case_ID","Sample_Type"]
+### SAMPLE_TYPE (DNA/RNA) is likely a required field for TSO, [OPTIONAL] Test_Definition --- in case multiple versions might be used?
 ### TODO: may need to query Connected Insights to grab custom fields associated to Test_Definition/workflow
 ### these are optional for now --- cases ingested via this script
 ### custom fields can be mandatory for case ingestion
 ### 3.0 and 4.0 have different API routes
-other_fields_of_interest = ["Sample_Type","Sample_Classification","Tags","Test_Definition","Sample Name(s)"]
+other_fields_of_interest = ["Sample_Classification","Tags","Test_Definition","Sample Name(s)","Sex"]
 fields_ignore = ["container"]
 def parse_table_row(row):
     row_mandatory_fields = dict()
@@ -287,10 +289,40 @@ def parse_table_row(row):
                             row_optional_fields[k] = row[field]
     return (row_mandatory_fields,row_optional_fields)
 
+def snomedct_id_validation(snowmedct_id):
+    is_valid = False
+    snowstorm_browser_url = "https://browser.ihtsdotools.org"
+    snowstorm_endpoint = "/snowstorm/snomed-ct/MAIN/SNOMEDCT-US/2024-03-01/concepts"
+    snowstorm_full_url = snowstorm_browser_url + snowstorm_endpoint
+    headers = CaseInsensitiveDict()
+    headers['Accept'] = 'application/json'   
+    headers['Content-Type'] = 'application/json' 
+    headers['User-Agent'] = 'Mozilla/5.0'
+    params = CaseInsensitiveDict()
+    params['offset'] = 0
+    params['limit'] = 100
+    params['termActive'] = "true"
+    params['ecl'] = f"{snowmedct_id}"
+    snowstorm_response = None
+    try:
+        snowstorm_response = requests.get(snowstorm_full_url, headers=headers,params=params)
+        snowstorm_items = snowstorm_response.json()['items'][0]
+        expected_fields = ['id','conceptId','active','fsn']
+        expected_fields_count = 0
+        for sk in list(snowstorm_items.keys()): 
+            if sk in ['id','conceptId','active','fsn']:
+                expected_fields_count += 1
+        if len(expected_fields) == expected_fields_count:
+            is_valid = True
+    except:
+        pprint(snowstorm_response,indent=4)
+        print(f"[Warning] Could not get find SNOWMED concept term with the identifier: {snowmedct_id}")  
+    return is_valid
 
 ############################################
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument('--domain_name', default="bootcamp-ici", type=str, help="Connected Insights")
     parser.add_argument('--project_id', default=None, type=str, help="ICA project id")
     parser.add_argument('--project_name', default=None, type=str, help="ICA project name")
     parser.add_argument('--sample_id', nargs='+', type=str, help="Sample Identifier to query from Clarity")
@@ -416,11 +448,15 @@ def main():
         missing_mandatory_flag = 0
         missing_optional_fields = []
         missing_optional_flag = 0
+        invalid_tumor_type_flag = 0
         #### mandatory fields for row
         if len(r[0]) > 0 :
             for mandatory in mandatory_fields:
                 if mandatory in r[0].keys():
                     final_line.append(r[0][mandatory])
+                    if mandatory == "Tumor_Type":
+                        if snomedct_id_validation(snowmedct_id=r[0][mandatory]) is False:
+                            invalid_tumor_type_flag = invalid_tumor_type_flag + 1
                 else:
                     missing_mandatory_flag = missing_mandatory_flag + 1
                     final_line.append("")
@@ -453,10 +489,12 @@ def main():
             warning_lines = warning_lines + 1
         if len(missing_mandatory_fields) > 0:
             missing_mandatory_fields_str = ",".join(missing_mandatory_fields)
-            print(f"[Warning] Missing Mandatory fields {missing_mandatory_fields_str} in  line {line_str}")
+            print(f"[Warning] Missing Mandatory fields {missing_mandatory_fields_str} in line {line_str}")
         if len(missing_optional_fields) > 0:
             missing_optional_fields_str = ",".join(missing_optional_fields)
-            print(f"[Warning] Missing Optional fields {missing_optional_fields_str} in  line {line_str}")
+            print(f"[Warning] Missing Optional fields {missing_optional_fields_str} in line {line_str}")
+        if invalid_tumor_type_flag > 0:
+            print(f"[Warning] Invalid SNOWMEDCT Identifier provided for Tumor_Type in line {line_str}")
 
     # STEP 6: Generate metadata CSV
     print(f"STEP 6: Creating metadata CSV for ingestion into Connected Insights")
