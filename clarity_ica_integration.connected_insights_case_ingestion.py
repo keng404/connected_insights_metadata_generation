@@ -164,7 +164,7 @@ def load_clarity_sample_table(snowflake_connector_object = None,  base_table_of_
     df = None
     if base_table_of_interest is None:
         base_table_of_interest = "CLARITY_SAMPLE_VIEW_tenant"
-    base_query = f"SELECT * FROM {base_table_of_interest}"
+    base_query = f"SELECT * FROM {base_table_of_interest} ORDER BY CREATE_TIME"
     # , ORDER BY CREATE_TIME DESC 
     print("SQL Query \n\n")
     pprint(base_query)
