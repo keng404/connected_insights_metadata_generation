@@ -17,9 +17,9 @@ If this flag is not included on command line, script will error out if there are
 ### Additional Notes
 
 - Base Table is hard-coded to ```CLARITY_SAMPLE_VIEW_tenant```
-    - The 'Data' field is parsed to identify mandatory fields ```Sample_ID,Tumor_Type,Case_ID``` needed for case ingestion by Connected Insights.
+    - The 'Data' field is parsed to identify **mandatory** fields ```Sample_ID,Tumor_Type,Case_ID``` needed for case ingestion by Connected Insights.
     This includes userDefinedFields. 
-- For now there is no validation of ```Tumor_Type``` as a valid SNOWMEDCT ID. This can be added in
+- For TSO500, the fields ```Sample_Type``` and ```Sex``` are considered **mandatory** in addition to the fields mentioned above.
 - Currently no integration with Connected Insights API to ingest this case metadata or to grab all mandatory(i.e. required) fields tied to a Test_Definition or Workflow_ID that has been configured in users Connected Insights workgroup.
 
 # connected_insights_case_metadata_upload
