@@ -319,6 +319,17 @@ def snomedct_id_validation(snowmedct_id):
         print(f"[Warning] Could not get find SNOWMED concept term with the identifier: {snowmedct_id}")  
     return is_valid
 
+field_validate_dict = dict()
+field_validate_dict['Sample_Type'] = ["DNA","RNA"]
+field_validate_dict['Sex'] = ["Male", "Female"] 
+def field_validator(field_of_interest,value_given):
+    field_valid = False
+    if field_of_interest not in list(field_validate_dict.keys()):
+        field_valid = None
+    else:
+        if value_given in field_validate_dict[field_of_interest]:
+            field_valid = False
+    return field_valid
 ############################################
 def main():
     parser = argparse.ArgumentParser()
@@ -449,6 +460,8 @@ def main():
         missing_optional_fields = []
         missing_optional_flag = 0
         invalid_tumor_type_flag = 0
+        invalid_field_value_flag = 0
+        invalid_field_values = []
         #### mandatory fields for row
         if len(r[0]) > 0 :
             for mandatory in mandatory_fields:
@@ -457,6 +470,12 @@ def main():
                     if mandatory == "Tumor_Type":
                         if snomedct_id_validation(snowmedct_id=r[0][mandatory]) is False:
                             invalid_tumor_type_flag = invalid_tumor_type_flag + 1
+                    if mandatory in list(field_validate_dict.keys()):
+                        if field_validator(mandatory,r[0][mandatory]) is None:
+                            print(f"[Info] Skipping validation for {mandatory}")
+                        elif field_validator(mandatory,r[0][mandatory]) is False:
+                            invalid_field_value_flag = invalid_field_value_flag + 1
+                            invalid_field_values.append(mandatory)
                 else:
                     missing_mandatory_flag = missing_mandatory_flag + 1
                     final_line.append("")
@@ -495,6 +514,11 @@ def main():
             print(f"[Warning] Missing Optional fields {missing_optional_fields_str} in line {line_str}")
         if invalid_tumor_type_flag > 0:
             print(f"[Warning] Invalid SNOWMEDCT Identifier provided for Tumor_Type in line {line_str}")
+        if len(invalid_field_values) > 0:
+            for invalid_value in invalid_field_values:
+                valid_values_str = ', '.join(field_validate_dict[invalid_value])
+                print(f"[Warning] Invalid Value for field {invalid_value} in line {line_str}")
+                print(f"[Warning] Expected value to be one of the following: [ {valid_values_str} ]")
 
     # STEP 6: Generate metadata CSV
     print(f"STEP 6: Creating metadata CSV for ingestion into Connected Insights")
