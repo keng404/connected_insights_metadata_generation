@@ -243,13 +243,13 @@ def subset_clarity_sample_view(clarity_sample_data = None, sample_ids = [], clar
 # in case Clarity stores info differently from the fields we are interested in
 field_map_dict = dict()
 field_map_dict["Sample_ID"] = "id" 
-mandatory_fields = ["Sample_ID", "Tumor_Type", "Case_ID","Sample_Type"]
+mandatory_fields = ["Sample_ID", "Tumor_Type", "Case_ID","Sample_Type","Sex"]
 ### SAMPLE_TYPE (DNA/RNA) is likely a required field for TSO, [OPTIONAL] Test_Definition --- in case multiple versions might be used?
 ### TODO: may need to query Connected Insights to grab custom fields associated to Test_Definition/workflow
 ### these are optional for now --- cases ingested via this script
 ### custom fields can be mandatory for case ingestion
 ### 3.0 and 4.0 have different API routes
-other_fields_of_interest = ["Sample_Classification","Tags","Test_Definition","Sample Name(s)","Sex"]
+other_fields_of_interest = ["Sample_Classification","Tags","Test_Definition","Sample Name(s)"]
 fields_ignore = ["container"]
 def parse_table_row(row):
     row_mandatory_fields = dict()

@@ -94,8 +94,8 @@ def main():
     parser.add_argument('--username', default=None,required=True, type=str, help="username [email] used to log into Connected Insights")
     parser.add_argument('--password', default=None,required=True, type=str, help="password used to log into Connected Insights")
     parser.add_argument('--metadata_csv', default=None,required=True, type=str, help="output CSV containing case metadata for Connected Insights")
-    parser.add_argument('--application_name', default="connectedinsights", type=str, help="Connected Insights app name alias")
-    parser.add_argument('--platform_url', default="https://platform.login.illumina.com", type=str, help="Illumina Platform authentication")
+    parser.add_argument('--application_name', default="connectedinsights", type=str, help="Connected Insights app name alias. Most usecases will not need this to be configured.")
+    parser.add_argument('--platform_url', default="https://platform.login.illumina.com", type=str, help="Illumina Platform authentication.Most usecases will not need this to be configured.")
     args, extras = parser.parse_known_args()
     #############
     username = args.username
@@ -128,6 +128,10 @@ def main():
         ingestion_metadata = case_metadata_ingestion_check(domain_url,auth_credentials,file_id)
         ingestion_status = ingestion_metadata['status']
 
+    ### TODO
+    # How to deal with users with multiple workgroups?
+    # Check if Case exists before ingestion?
+0
 #################
 if __name__ == '__main__':
     main()
