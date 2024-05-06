@@ -1,5 +1,7 @@
 # connected_insights_metadata_generation
 
+Create metadata CSV table from data in Clarity
+
 ## Command-line usage
 
 ![Image](https://github.com/keng404/connected_insights_metadata_generation/blob/main/script_usage_help.png)
@@ -20,6 +22,13 @@ If this flag is not included on command line, script will error out if there are
 - For now there is no validation of ```Tumor_Type``` as a valid SNOWMEDCT ID. This can be added in
 - Currently no integration with Connected Insights API to ingest this case metadata or to grab all mandatory(i.e. required) fields tied to a Test_Definition or Workflow_ID that has been configured in users Connected Insights workgroup.
 
+# connected_insights_case_metadata_upload
+
+Upload metadata CSV table into Connected Insights
+
+## Command-line usage
+
+![Image](https://github.com/keng404/connected_insights_metadata_generation/blob/main/Help_screenshot.connected_insights_case_metadata_upload.png)
 
 ## Installation of python modules to run script
 
