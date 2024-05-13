@@ -1,3 +1,10 @@
+# Synopsis
+
+This repository contains scripts to generate metadata and creating cases in Illumina Connected Insights (v4.0) .
+
+It assumes that you have 'integration' between Clarity LIMS and Illumina Connected Analytics (ICA) via the Data Catalogue.
+
+
 # connected_insights_metadata_generation
 
 Create metadata CSV table from data in Clarity
