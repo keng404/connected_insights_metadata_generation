@@ -21,11 +21,32 @@ def generate_ps_token(platform_url,application_name,domain_url,credentials):
     access_token = None
     try:
         platform_response = requests.post(platform_services_url, headers=headers,data=json.dumps(data))
-        access_token = platform_response.json()['access_token']
+        platform_response_json = platform_response.json()
+        if 'access_token' not in list(platform_response_json.keys()):
+            pprint(json.dumps(platform_response_json),indent=4)
+        else:
+            access_token = platform_response.json()['access_token']
     except:
+        platform_response = requests.post(platform_services_url, headers=headers,data=json.dumps(data))
         pprint(platform_response,indent=4)
         raise ValueError(f"Could not generate psToken for the following URL: {domain_url}")
     return access_token    
+
+### workaround to get current workgroup id
+def get_workgroup_metadata_v2(domain_url,headers):
+    header_reply = {}
+    new_url = f"{domain_url}/gateway/workgroup"
+    data = {}
+    data["rURL"] = f"{domain_url}/crs/api/v1/session/workgroups"
+    #print(new_url)
+    r = requests.get(new_url,headers=headers,data=json.dumps(data),stream=True,allow_redirects=False)
+    print(f"HTTP/{r.raw.version/10} {r.raw.status} {r.raw.reason}")
+    for k,v in r.raw.headers.items(): 
+        #print(f"{k}: {v}")
+        header_reply[k]=v
+    #print(r.text)
+    #print(header_reply)
+    return header_reply
 
 # STEP 2: obtain WorkgroupID
 def get_workgroup_id(domain_url,auth_credentials,workgroup_name=None):
@@ -33,13 +54,17 @@ def get_workgroup_id(domain_url,auth_credentials,workgroup_name=None):
     full_url = domain_url + endpoint
     headers = CaseInsensitiveDict()
     headers['accept'] = "application/json"
+    #headers['accept'] = "application/json, text/plain, */*"
     headers['X-ILMN-Domain'] = auth_credentials['X-ILMN-Domain']
     headers['Authorization'] = auth_credentials['Authorization']
     headers['Content-Type'] = "application/json"
+    headers['User-Agent'] = auth_credentials['User-Agent']
     workgroup_id = None
     try:
         connected_insights_response = requests.get(full_url, headers=headers)
-        ### pick first workgroup observed if no workgroup name figben
+        print(connected_insights_response.request.headers)
+        #print(connected_insights_response.text)
+        ### pick first workgroup observed if no workgroup name given
         if workgroup_name is None:
             workgroup_roles = connected_insights_response.json()['workgroupRoles'][0]
             workgroup_id = workgroup_roles['orgid']
@@ -51,8 +76,25 @@ def get_workgroup_id(domain_url,auth_credentials,workgroup_name=None):
                     workgroup_name = workgroup['orgName'] 
         print(f"Found workgroup id {workgroup_id} associated to the workgroup name {workgroup_name}")
     except:
-        pprint(platform_response,indent=4)
-        raise ValueError(f"Could not find workgroup id for user for the following URL: {domain_name}")
+        connected_insights_response = requests.get(full_url, headers=headers)
+        pprint(connected_insights_response,indent=4)
+        header_response = get_workgroup_metadata_v2(domain_url,headers)
+        pprint(header_response,indent=4)
+        ########
+        cookie_items =header_response["Set-Cookie"].split(";")
+        cookie_items_dict = {}
+        for cookie in cookie_items:
+            #print(cookie)
+            cookie_split = cookie.split("=")
+            #print(cookie_split)
+            if len(cookie_split) > 1:
+                cookie_items_dict[cookie_split[0]] = cookie_split[1]
+        if 'olympia-current-workgroup' in list(cookie_items_dict.keys()):
+            workgroup_id = cookie_items_dict['olympia-current-workgroup']
+            print(f"Found workgroup id {workgroup_id} via workaround")
+        else:
+            pprint(header_response["Set-Cookie"],indent=4)
+            raise ValueError(f"Could not find workgroup id for user for the following URL: {auth_credentials['X-ILMN-Domain']}")
     return workgroup_id
 
 # Validation STEP 2A: Check on Tumor Type --- SNOWMEDCT IDs configured in Connected Insights 
@@ -66,8 +108,13 @@ def get_diseases_configured(domain_url,auth_credentials):
     headers['X-ILMN-Domain'] = auth_credentials['X-ILMN-Domain']
     headers['Authorization'] = auth_credentials['Authorization']
     headers['X-ILMN-Workgroup'] = auth_credentials['X-ILMN-Workgroup']
+    headers['User-Agent'] = auth_credentials['User-Agent']
     try:
         diseases_configured = requests.get(full_url, headers=headers)
+        #print(diseases_configured.request.headers)
+        #print(diseases_configured.status_code)
+        #print(diseases_configured.reason)
+        #print(diseases_configured.text)
         diseases_configured_items = json.loads(diseases_configured.text)
         for idx,item in enumerate(diseases_configured_items):
             if 'associatedDiseasesTerms' in list(item.keys()):
@@ -77,7 +124,12 @@ def get_diseases_configured(domain_url,auth_credentials):
                             synonym_string = ", ".join(term['synonym'])
                             valid_snowmedct_ids[str(term['externalId'])] = f"{synonym_string}"
     except:
-        pprint(json.loads(diseases_configured.text),indent=4)
+        diseases_configured = requests.get(full_url, headers=headers)
+        print(diseases_configured.request.headers)
+        print(diseases_configured.status_code)
+        print(diseases_configured.reason)
+        print(diseases_configured.text)
+        #pprint(json.loads(diseases_configured.text),indent=4)
         raise ValueError(f"Could not get diseases configured for {domain_url}")
     return valid_snowmedct_ids
 
@@ -128,6 +180,7 @@ def get_cases_present(domain_url,auth_credentials):
             cases_present_items = json.loads(cases_present.text)
             #print(f"done {pages_parsed * page_size}")
     except:
+        cases_present = requests.get(full_url, headers=headers)
         pprint(json.loads(cases_present.text),indent = 4)
         raise ValueError(f"Could not get cases present for {domain_url}")
     return current_cases
@@ -157,8 +210,8 @@ def upload_case_metadata(domain_url,auth_credentials,metadata_csv):
     full_url = domain_url + endpoint_url
     headers = CaseInsensitiveDict()
     headers['accept'] = "*/*"
-    headers['X-ILMN-Domain'] = auth_credentials['X-ILMN-Domain']
-    headers['X-ILMN-Workgroup'] = auth_credentials['X-ILMN-Workgroup']
+    headers['X-Ilmn-Domain'] = auth_credentials['X-ILMN-Domain']
+    headers['X-Ilmn-Workgroup'] = auth_credentials['X-ILMN-Workgroup']
     headers['Authorization'] = auth_credentials['Authorization']
     input_file = os.path.basename(f"{metadata_csv}")
     files = {'files' : (f"{input_file}", open(f"{metadata_csv}", 'rb'), 'text/csv') }
@@ -181,8 +234,8 @@ def case_metadata_ingestion_check(domain_url,auth_credentials,file_id):
     full_url = domain_url + endpoint_url
     headers = CaseInsensitiveDict()
     headers['accept'] = "*/*"
-    headers['X-ILMN-Domain'] = auth_credentials['X-ILMN-Domain']
-    headers['X-ILMN-Workgroup'] = auth_credentials['X-ILMN-Workgroup']
+    headers['X-Ilmn-Domain'] = auth_credentials['X-ILMN-Domain']
+    headers['X-Ilmn-Workgroup'] = auth_credentials['X-ILMN-Workgroup']
     headers['Authorization'] = auth_credentials['Authorization']
     ingestion_status = None
     try:
@@ -196,8 +249,9 @@ def case_metadata_ingestion_check(domain_url,auth_credentials,file_id):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--domain_url', default=None,required=True, type=str, help="Connected Insights domain URL")
-    parser.add_argument('--username', default=None,required=True, type=str, help="username [email] used to log into Connected Insights")
-    parser.add_argument('--password', default=None,required=True, type=str, help="password used to log into Connected Insights")
+    parser.add_argument('--api_key_file', default=None, type=str, help="path to API key file")
+    parser.add_argument('--username', default=None, type=str, help="username [email] used to log into Connected Insights")
+    parser.add_argument('--password', default=None, type=str, help="password used to log into Connected Insights")
     parser.add_argument('--metadata_csv', default=None,required=True, type=str, help="output CSV containing case metadata for Connected Insights")
     parser.add_argument('--workgroup_id', default=None, type=str, help="[OPTIONAL] Connected Insights Workgroup ID")
     parser.add_argument('--workgroup_name', default=None, type=str, help="[OPTIONAL] Connected Insights Workgroup Name to grab Workgroup ID")
@@ -212,7 +266,12 @@ def main():
     domain_url = args.domain_url
     application_name = args.application_name
     platform_url = args.platform_url
+    API_KEY = None
     ############
+    if args.api_key_file is not None:
+        if os.path.isfile(args.api_key_file) is True:
+            with open(args.api_key_file, 'r') as f:
+                API_KEY = str(f.read().strip("\n"))
 
     ## base64 encode username password combination
     encoded_key = base64.b64encode(bytes(f"{username}:{password}", "utf-8")).decode()
@@ -220,10 +279,16 @@ def main():
 
     # STEP 1: Generate psToken from username and password
     print(f"Grabbing user metadata for {domain_url}")
-    ps_token = generate_ps_token(platform_url,application_name,domain_url,encoded_key)
-    auth_credentials['Authorization'] = f"{ps_token}"
-    auth_credentials['X-ILMN-Domain'] = domain_url.strip("https://").split(".")[0]
+    if API_KEY is None:
+        ps_token = generate_ps_token(platform_url,application_name,domain_url,encoded_key)
+        auth_credentials['Authorization'] = f"{ps_token}"
+    else:
+        auth_credentials['Authorization'] = f"ApiKey {API_KEY}"
+    
+    auth_credentials['User-Agent'] = "Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/103.0.0.0 Mobile Safari/537.36"
 
+    auth_credentials['X-ILMN-Domain'] = domain_url.strip("https://").split(".")[0]
+    
     # STEP 2: Obtain WorkgroupID
     if args.workgroup_name is None and args.workgroup_id is None:
         workgroup_id = get_workgroup_id(domain_url,auth_credentials)
